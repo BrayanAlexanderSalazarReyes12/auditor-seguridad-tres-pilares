@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="auditor-token" content="__AUDITOR_TOKEN__">
+  <title>Auditor de Ciberseguridad</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div><small>SHIELD LAB</small><strong>Auditor de<br>Ciberseguridad</strong></div>
+      </div>
+      <nav aria-label="Navegación principal">
+        <button class="nav-item active" data-page="audit"><span>01</span> Ejecutar auditoría</button>
+        <button class="nav-item" data-page="results"><span>02</span> Resultados</button>
+        <button class="nav-item" data-page="manual"><span>03</span> Manual integrado</button>
+      </nav>
+      <div class="sidebar-foot">
+        <small>EQUIPO EVALUADOR</small>
+        <p>3 Ingenieros de Sistemas</p>
+        <span class="local-badge">● Solo 127.0.0.1</span>
+        <button id="shutdown-button" class="shutdown-button" type="button">Cerrar interfaz</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">EVALUACIÓN REPRODUCIBLE</p>
+          <h1 id="page-title">Auditoría de los tres pilares</h1>
+        </div>
+        <div id="status-pill" class="status-pill idle"><i></i><span>Listo para configurar</span></div>
+      </header>
+
+      <section id="page-audit" class="page active">
+        <div class="pillar-strip">
+          <article><b>01</b><div><strong>Identidad y acceso</strong><span>Autenticación, BOLA, roles y agencia</span></div></article>
+          <article><b>02</b><div><strong>Arquitectura segura</strong><span>Configuración, límites y consumo</span></div></article>
+          <article><b>03</b><div><strong>Integridad</strong><span>Dependencias, CI/CD y registro</span></div></article>
+        </div>
+
+        <div class="audit-grid">
+          <form id="audit-form" class="card form-card" autocomplete="off">
+            <div class="card-head">
+              <div><p class="eyebrow">CONFIGURACIÓN</p><h2>Nueva corrida</h2></div>
+              <span class="secure-chip">Credenciales efímeras</span>
+            </div>
+
+            <div class="field full">
+              <label for="repository">Repositorio autorizado</label>
+              <div class="input-action"><input id="repository" name="repository" placeholder="C:\ruta\a\la\copia\autorizada" required><button type="button" data-select="repository">Examinar</button></div>
+            </div>
+            <div class="field full">
+              <label for="config">Política de controles</label>
+              <div class="input-action"><input id="config" name="config" value="auditor_config.tramitia.example.json" required><button type="button" data-select="config">Examinar</button></div>
+            </div>
+            <div class="field full">
+              <label for="output_dir">Carpeta de resultados</label>
+              <div class="input-action"><input id="output_dir" name="output_dir" value="resultados" required><button type="button" data-select="output">Examinar</button></div>
+            </div>
+
+            <div class="two-cols">
+              <div class="field"><label for="base_url">URL del laboratorio</label><input id="base_url" name="base_url" value="http://127.0.0.1:5050"></div>
+              <div class="field"><label for="fail_on">Umbral de salida</label><select id="fail_on" name="fail_on"><option value="">No bloquear</option><option>MEDIA</option><option>ALTA</option><option>CRITICA</option></select></div>
+            </div>
+
+            <div class="choice-block">
+              <div><span class="field-label">Pilares</span><div class="chips"><label><input type="checkbox" name="pillar" value="1" checked><span>Pilar 1</span></label><label><input type="checkbox" name="pillar" value="2" checked><span>Pilar 2</span></label><label><input type="checkbox" name="pillar" value="3" checked><span>Pilar 3</span></label></div></div>
+              <div><span class="field-label">Condición</span><div class="chips"><label><input type="radio" name="condition" value="A" checked><span>A · Inicial</span></label><label><input type="radio" name="condition" value="B"><span>B · Intervenida</span></label></div></div>
+            </div>
+
+            <div class="field full">
+              <label for="compare_with">Evidencia para comparar <em>opcional</em></label>
+              <div class="input-action"><input id="compare_with" name="compare_with" placeholder="Seleccione evidencia_A.json al ejecutar B"><button type="button" data-select="comparison">Examinar</button></div>
+            </div>
+
+            <details class="credential-panel">
+              <summary>Identidades ficticias del laboratorio <span>Las contraseñas nunca se guardan</span></summary>
+              <p class="credential-help">Agregue solamente cuentas ficticias del laboratorio. La interfaz comienza con el usuario A; puede añadir B, C, D y más. Los datos se mantienen en memoria durante la corrida y no se escriben en el JSON ni en el informe.</p>
+              <div id="identities-list" class="identity-list"></div>
+              <div class="identity-actions"><button id="add-identity" type="button">+ Agregar otro usuario</button><small>Máximo 12 identidades (A–L)</small></div>
+            </details>
+
+            <div class="toggles">
+              <label><input id="generate_docx" type="checkbox" checked><span><b>Informe Word profesional</b><small>Incluye dictamen, trazabilidad y autores</small></span></label>
+              <label><input id="active_tests" type="checkbox" checked><span><b>Pruebas activas acotadas</b><small>Solo en un laboratorio desechable</small></span></label>
+              <label><input id="allow_network" type="checkbox"><span><b>Destino no local</b><small>Requiere autorización explícita</small></span></label>
+            </div>
+
+            <label class="authorization"><input id="authorized" type="checkbox" required><span>Confirmo autorización expresa, alcance controlado y uso exclusivo de datos ficticios.</span></label>
+
+            <div class="form-actions"><button id="run-button" class="primary" type="submit">Ejecutar los tres pilares</button><button id="cancel-button" class="secondary" type="button" disabled>Cancelar</button></div>
+          </form>
+
+          <aside class="right-stack">
+            <article class="card execution-card">
+              <div class="card-head"><div><p class="eyebrow">EJECUCIÓN</p><h2>Consola segura</h2></div><span id="run-indicator" class="run-indicator">En espera</span></div>
+              <div id="progress" class="progress"><span></span></div>
+              <pre id="console">Configure la corrida y confirme la autorización para comenzar.</pre>
+            </article>
+            <article class="insight-card">
+              <span class="insight-icon">A/B</span>
+              <div><strong>Regla de comparabilidad</strong><p>Las dos condiciones ejecutan el mismo instrumento. Solo debe cambiar la intervención del sistema estudiado.</p></div>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+      <section id="page-results" class="page">
+        <div class="metrics">
+          <article><span>Hallazgos</span><strong id="metric-findings">—</strong><small>total observado</small></article>
+          <article><span>Confirmados</span><strong id="metric-confirmed">—</strong><small>criterio determinista</small></article>
+          <article class="critical"><span>Críticos</span><strong id="metric-critical">—</strong><small>prioridad inmediata</small></article>
+          <article class="high"><span>Altos</span><strong id="metric-high">—</strong><small>plan de remediación</small></article>
+        </div>
+        <article class="card results-card">
+          <div class="card-head">
+            <div><p class="eyebrow">ÚLTIMA EVIDENCIA</p><h2>Hallazgos sustentados</h2></div>
+            <div class="table-actions"><button data-open="output">Abrir carpeta</button><button data-open="report" class="primary small">Abrir informe Word</button></div>
+          </div>
+          <div class="load-row"><input id="evidence_path" placeholder="C:\ruta\resultados\evidencia_B.json"><button type="button" data-select="comparison" data-target="evidence_path">Examinar</button><button id="load-evidence" type="button">Cargar evidencia</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Regla</th><th>Pilar</th><th>Severidad</th><th>Estado</th><th>Hallazgo</th></tr></thead><tbody id="findings-body"><tr class="empty"><td colspan="5">Ejecute una auditoría o cargue una evidencia para ver los resultados.</td></tr></tbody></table></div>
+        </article>
+      </section>
+
+      <section id="page-manual" class="page">
+        <article class="manual-hero"><p class="eyebrow">MANUAL INTEGRADO</p><h2>De la configuración a una comparación válida</h2><p>Guía operativa para ejecutar el estudio con seguridad, interpretar la evidencia y producir el informe profesional.</p></article>
+        <div class="manual-grid">
+          <article class="card manual-nav"><a href="#m-purpose">Propósito</a><a href="#m-pillars">Los tres pilares</a><a href="#m-ab">Procedimiento A/B</a><a href="#m-results">Interpretación</a><a href="#m-ethics">Alcance ético</a><a href="#m-team">Equipo</a></article>
+          <article class="card manual-content">
+            <section id="m-purpose"><span class="step-number">00</span><h3>Propósito del instrumento</h3><p>El auditor aplica reglas deterministas, conserva evidencia JSON y genera un informe Word profesional. No usa IA para decidir si una regla pasa o falla.</p><div class="note">El JSON es la fuente canónica. El Word es una representación para revisión técnica y académica.</div></section>
+            <section id="m-pillars"><span class="step-number">01</span><h3>Los tres pilares</h3><div class="manual-cards"><div><b>Pilar 1</b><strong>Identidad y control de acceso</strong><p>Autenticación, BOLA, fronteras de rol, identidad efectiva y protección frente a intentos fallidos.</p></div><div><b>Pilar 2</b><strong>Arquitectura y configuración</strong><p>Consumo, CORS, cabeceras, secretos, DEBUG y límites de cuerpo.</p></div><div><b>Pilar 3</b><strong>Integridad y cadena de suministro</strong><p>Versiones, lockfiles, hashes, procedencia, referencias CI/CD y cadena del registro.</p></div></div></section>
+            <section id="m-ab"><span class="step-number">02</span><h3>Procedimiento A/B</h3><ol><li>Inicie únicamente el laboratorio autorizado.</li><li>Use <strong>Examinar</strong> para seleccionar la copia local, la política y la carpeta de resultados.</li><li>Seleccione los tres pilares.</li><li>Ingrese usuario y contraseña para A. Use “Agregar otro usuario” si necesita B, C u otras identidades.</li><li>Ejecute la condición A y conserve <code>evidencia_A.json</code>.</li><li>Aplique la intervención, verifique que esté activa y reinicie el sistema.</li><li>Ejecute B seleccionando la evidencia A en “Comparar con”.</li><li>Confirme en el Word que instrumento y política sean idénticos.</li></ol><div class="warning">Si cambia la política, los pilares, límites, identidades, semilla o datos, no atribuya el resultado a la intervención.</div></section>
+            <section id="m-results"><span class="step-number">03</span><h3>Interpretar correctamente</h3><dl><dt>CONFIRMADO</dt><dd>La observación cumplió el criterio determinista de promoción.</dd><dt>REQUIERE_REVISION</dt><dd>La corrida fue inconclusa; debe repetirse antes de afirmar una vulnerabilidad.</dd><dt>PASS</dt><dd>Acredita el control puntual dentro del alcance, no ausencia total de riesgo.</dd><dt>ERROR / SKIP</dt><dd>Debe conservarse y explicarse la causa.</dd></dl></section>
+            <section id="m-ethics"><span class="step-number">04</span><h3>Alcance ético</h3><p>No ejecute pruebas activas contra sistemas, redes, datos o cuentas sin autorización expresa. No use información personal o institucional real. Un destino no local debe figurar expresamente en el alcance.</p></section>
+            <section id="m-team"><span class="step-number">05</span><h3>Equipo evaluador</h3><p><strong>Diego Andrés García Álvarez</strong><br><strong>Angel Danilo Marin Giraldo</strong><br><strong>Brayan Alexander Salazar Reyes</strong></p><p>Ingenieros de Sistemas</p></section>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

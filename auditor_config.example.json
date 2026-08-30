@@ -1,0 +1,56 @@
+{
+  "policy_version": "pilar3-a03-a08-2026-08-29",
+  "case_id": "tramitia-app",
+  "max_files": 20000,
+  "max_file_bytes": 2097152,
+  "max_total_bytes": 524288000,
+  "ignore_directories": [
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".tox",
+    ".nox",
+    "coverage"
+  ],
+  "ignore_globs": [
+    "artifact_work/**",
+    "evidencia_*.json",
+    "*.jsonl",
+    "*.sqlite3",
+    "~$*"
+  ],
+  "allowed_source_hosts": [
+    "pypi.org",
+    "files.pythonhosted.org",
+    "registry.npmjs.org",
+    "github.com",
+    "raw.githubusercontent.com",
+    "repo.maven.apache.org",
+    "crates.io",
+    "index.crates.io",
+    "proxy.golang.org",
+    "docker.io",
+    "ghcr.io"
+  ],
+  "require_lockfiles": true,
+  "require_python_hashes": true,
+  "requirements_hashes_satisfy_lock": true,
+  "require_explicit_provenance": false,
+  "integrity_required_globs": [
+    "artifacts/**",
+    "dist/**/*.whl",
+    "dist/**/*.jar",
+    "dist/**/*.zip",
+    "dist/**/*.tar.gz",
+    "releases/**"
+  ],
+  "expected_hashes": {},
+  "advisories": [],
+  "ci_verification_window": 8
+}

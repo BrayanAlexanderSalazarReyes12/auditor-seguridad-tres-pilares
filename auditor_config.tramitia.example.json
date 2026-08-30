@@ -1,0 +1,308 @@
+{
+  "policy_version": "tramitia-pilares-1-2-3-2026-08-30",
+  "case_id": "tramitia-app",
+  "max_files": 20000,
+  "max_file_bytes": 2097152,
+  "max_total_bytes": 524288000,
+  "ignore_directories": [
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".tox",
+    ".nox",
+    "coverage"
+  ],
+  "ignore_globs": [
+    "artifact_work/**",
+    "evidencia_*.json",
+    "*.jsonl",
+    "*.sqlite3",
+    "~$*"
+  ],
+  "allowed_source_hosts": [
+    "pypi.org",
+    "files.pythonhosted.org",
+    "registry.npmjs.org",
+    "github.com",
+    "raw.githubusercontent.com",
+    "repo.maven.apache.org",
+    "crates.io",
+    "index.crates.io",
+    "proxy.golang.org",
+    "docker.io",
+    "ghcr.io"
+  ],
+  "require_lockfiles": true,
+  "require_python_hashes": true,
+  "requirements_hashes_satisfy_lock": true,
+  "require_explicit_provenance": false,
+  "integrity_required_globs": [
+    "artifacts/**",
+    "dist/**/*.whl",
+    "dist/**/*.jar",
+    "dist/**/*.zip",
+    "dist/**/*.tar.gz",
+    "releases/**"
+  ],
+  "expected_hashes": {},
+  "advisories": [],
+  "ci_verification_window": 8,
+  "runtime": {
+    "base_url": "http://127.0.0.1:5050",
+    "timeout_seconds": 5,
+    "max_requests": 50,
+    "max_response_bytes": 262144,
+    "max_active_body_bytes": 131072,
+    "identities": {
+      "usuario_a": {
+        "username_env": "AUDITOR_TRAMITIA_USER_A",
+        "password_env": "AUDITOR_TRAMITIA_PASSWORD_A"
+      },
+      "usuario_b": {
+        "username_env": "AUDITOR_TRAMITIA_USER_B",
+        "password_env": "AUDITOR_TRAMITIA_PASSWORD_B"
+      }
+    },
+    "checks": [
+      {
+        "id": "P1-AUTH-001",
+        "pillar": 1,
+        "type": "auth_required",
+        "title": "Endpoint de solicitudes accesible sin autenticacion",
+        "category": "OWASP Top 10:2021 A07 Identification and Authentication Failures",
+        "severity": "ALTA",
+        "request": {
+          "method": "GET",
+          "path": "/api/solicitudes"
+        },
+        "expected": {
+          "denied_status": [401, 403]
+        },
+        "recommendation": "Exigir autenticacion valida antes de procesar cualquier endpoint de la API."
+      },
+      {
+        "id": "P1-BOLA-002",
+        "pillar": 1,
+        "type": "cross_object_access",
+        "title": "Lectura cruzada de solicitudes entre usuarios",
+        "category": "OWASP API1:2023 Broken Object Level Authorization / OWASP Top 10:2021 A01 Broken Access Control",
+        "severity": "CRITICA",
+        "owner_identity": "usuario_a",
+        "other_identity": "usuario_b",
+        "request": {
+          "method": "GET",
+          "path": "/api/solicitudes/1"
+        },
+        "expected": {
+          "owner_status": [200],
+          "denied_status": [403, 404]
+        },
+        "recommendation": "Autorizar cada solicitud por propietario o rol y devolver 404/403 al resto."
+      },
+      {
+        "id": "P1-ROLE-003",
+        "pillar": 1,
+        "type": "role_boundary",
+        "title": "Auditoria administrativa accesible por un analista",
+        "category": "OWASP Top 10:2021 A01 Broken Access Control",
+        "severity": "ALTA",
+        "identity": "usuario_b",
+        "request": {
+          "method": "GET",
+          "path": "/api/admin/auditoria?limite=1"
+        },
+        "expected": {
+          "denied_status": [403, 404]
+        },
+        "recommendation": "Exigir y comprobar el rol coordinador en el endpoint administrativo."
+      },
+      {
+        "id": "P1-AGENT-004",
+        "pillar": 1,
+        "type": "json_value_policy",
+        "title": "El agente eleva la identidad efectiva del analista",
+        "category": "OWASP Top 10:2021 A01 Broken Access Control / OWASP LLM06:2025 Excessive Agency",
+        "severity": "CRITICA",
+        "identity": "usuario_b",
+        "request": {
+          "method": "POST",
+          "path": "/api/asistente/ejecutar",
+          "json": {
+            "tarea": "lista mis solicitudes",
+            "modelo": "local",
+            "semilla": 20260830
+          }
+        },
+        "expected": {
+          "status": [200]
+        },
+        "json_path": "$.identidad_efectiva.role",
+        "disallowed_values": ["coordinador", "admin", "administrator"],
+        "recommendation": "Propagar la identidad real del solicitante y aplicar la autorizacion en cada herramienta."
+      },
+      {
+        "id": "P1-BRUTE-005",
+        "pillar": 1,
+        "type": "brute_force_protection",
+        "title": "Autenticacion sin limitacion de intentos fallidos",
+        "category": "OWASP Top 10:2021 A07 Identification and Authentication Failures",
+        "severity": "MEDIA",
+        "identity": "usuario_b",
+        "active": true,
+        "attempts": 8,
+        "request": {
+          "method": "POST",
+          "path": "/api/asistente/ejecutar",
+          "json": {
+            "tarea": "prueba de autenticacion autorizada"
+          }
+        },
+        "expected": {
+          "throttle_status": [423, 429]
+        },
+        "recommendation": "Aplicar rate limiting y alertas sobre intentos fallidos sin revelar si el usuario existe."
+      },
+      {
+        "id": "P2-RATE-001",
+        "pillar": 2,
+        "type": "rate_limit_bypass",
+        "title": "El indicador urgente evade el presupuesto del agente",
+        "category": "OWASP Top 10:2021 A04 Insecure Design / OWASP LLM10:2025 Unbounded Consumption / OWASP API4:2023 Unrestricted Resource Consumption",
+        "severity": "ALTA",
+        "identity": "usuario_a",
+        "active": true,
+        "requests_per_variant": 5,
+        "request": {
+          "method": "POST",
+          "path": "/api/asistente/ejecutar"
+        },
+        "normal_json": {
+          "tarea": "lista mis solicitudes",
+          "modelo": "local",
+          "semilla": 20260830
+        },
+        "bypass_json": {
+          "tarea": "lista mis solicitudes",
+          "urgente": true,
+          "modelo": "local",
+          "semilla": 20260830
+        },
+        "expected": {
+          "limited_status": [429]
+        },
+        "recommendation": "Someter urgente=true a autorizacion de rol y a un presupuesto independiente controlado."
+      },
+      {
+        "id": "P2-CORS-002",
+        "pillar": 2,
+        "type": "cors_policy",
+        "title": "CORS refleja un origen no confiable con credenciales",
+        "category": "OWASP Top 10:2021 A05 Security Misconfiguration",
+        "severity": "ALTA",
+        "identity": "usuario_a",
+        "origin": "https://origen-no-confiable.example",
+        "request": {
+          "method": "GET",
+          "path": "/api/solicitudes"
+        },
+        "recommendation": "Usar una allowlist exacta de origenes y no habilitar credenciales para origenes arbitrarios."
+      },
+      {
+        "id": "P2-HEADERS-003",
+        "pillar": 2,
+        "type": "security_headers",
+        "title": "Faltan cabeceras HTTP defensivas",
+        "category": "OWASP Top 10:2021 A05 Security Misconfiguration",
+        "severity": "MEDIA",
+        "request": {
+          "method": "GET",
+          "path": "/health"
+        },
+        "required_headers": {
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer"
+        },
+        "recommendation": "Configurar cabeceras defensivas de forma central para todas las respuestas."
+      },
+      {
+        "id": "P2-SECRET-004",
+        "pillar": 2,
+        "type": "source_regex_absent",
+        "title": "La aplicacion conserva una clave secreta publica de respaldo",
+        "category": "OWASP Top 10:2021 A05 Security Misconfiguration",
+        "severity": "ALTA",
+        "files": [
+          "tramitia/__init__.py"
+        ],
+        "patterns": [
+          "SECRETO_POR_DEFECTO\\s*="
+        ],
+        "recommendation": "Fallar de forma segura si TRAMITIA_SECRET no fue aprovisionada; no distribuir un valor utilizable."
+      },
+      {
+        "id": "P2-DEBUG-005",
+        "pillar": 2,
+        "type": "source_regex_absent",
+        "title": "La plantilla de despliegue habilita DEBUG",
+        "category": "OWASP Top 10:2021 A05 Security Misconfiguration",
+        "severity": "ALTA",
+        "files": [
+          ".env.example"
+        ],
+        "patterns": [
+          "^\\s*TRAMITIA_DEBUG\\s*=\\s*(?:1|true|True)\\s*$"
+        ],
+        "recommendation": "Entregar DEBUG deshabilitado y activarlo solo de forma local y temporal."
+      },
+      {
+        "id": "P2-BODY-006",
+        "pillar": 2,
+        "type": "body_limit",
+        "title": "La API no impone un limite global de cuerpo",
+        "category": "OWASP API4:2023 Unrestricted Resource Consumption",
+        "severity": "MEDIA",
+        "identity": "usuario_a",
+        "active": true,
+        "body_size": 32768,
+        "field": "tarea",
+        "request": {
+          "method": "POST",
+          "path": "/api/asistente/ejecutar"
+        },
+        "expected": {
+          "rejected_status": [413]
+        },
+        "recommendation": "Definir un limite global de cuerpo antes de parsear JSON y limites especificos por campo."
+      },
+      {
+        "id": "P3-AUDIT-001",
+        "pillar": 3,
+        "type": "audit_hash_chain",
+        "title": "El registro de auditoria no tiene una cadena de integridad verificable",
+        "category": "OWASP Top 10:2021 A09 Security Logging and Monitoring Failures / A08 Software and Data Integrity Failures",
+        "severity": "ALTA",
+        "identity": "usuario_a",
+        "request": {
+          "method": "GET",
+          "path": "/api/admin/auditoria?limite=500"
+        },
+        "expected": {
+          "status": [
+            200
+          ]
+        },
+        "events_json_path": "$.eventos",
+        "previous_hash_field": "hash_anterior",
+        "hash_field": "hash_evento",
+        "trusted_anchor": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "recommendation": "Encadenar cada evento desde un ancla confiable, verificar toda la cadena y conservar la salida del verificador."
+      }
+    ]
+  }
+}
