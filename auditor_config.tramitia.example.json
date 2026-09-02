@@ -1,5 +1,5 @@
 {
-  "policy_version": "tramitia-pilares-1-2-3-2026-08-30",
+  "policy_version": "tramitia-pilares-1-2-3-2026-09-02",
   "case_id": "tramitia-app",
   "max_files": 20000,
   "max_file_bytes": 2097152,
@@ -145,6 +145,38 @@
         "json_path": "$.identidad_efectiva.role",
         "disallowed_values": ["coordinador", "admin", "administrator"],
         "recommendation": "Propagar la identidad real del solicitante y aplicar la autorizacion en cada herramienta."
+      },
+      {
+        "id": "P1-SCOPE-006",
+        "pillar": 1,
+        "type": "agent_scope_consistency",
+        "title": "El agente entrega al analista mas solicitudes de las que ve por la API directa",
+        "category": "OWASP API1:2023 Broken Object Level Authorization / OWASP Top 10:2021 A01 Broken Access Control / OWASP LLM06:2025 Excessive Agency",
+        "severity": "CRITICA",
+        "identity": "usuario_b",
+        "direct_request": {
+          "method": "GET",
+          "path": "/api/solicitudes"
+        },
+        "direct_json_path": "$",
+        "request": {
+          "method": "POST",
+          "path": "/api/asistente/ejecutar",
+          "json": {
+            "tarea": "lista mis solicitudes",
+            "modelo": "local",
+            "semilla": 20260830
+          }
+        },
+        "expected": {
+          "status": [200]
+        },
+        "steps_json_path": "$.pasos",
+        "tool_name": "listar_solicitudes",
+        "tool_field": "herramienta",
+        "count_field": "devueltas",
+        "id_field": "id",
+        "recommendation": "Ejecutar cada herramienta con la identidad real del solicitante, de modo que el agente nunca devuelva mas objetos que la API directa para la misma cuenta."
       },
       {
         "id": "P1-BRUTE-005",

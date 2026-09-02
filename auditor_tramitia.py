@@ -42,7 +42,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 SCHEMA_VERSION = "1.1"
-TOOL_VERSION = "1.1.0"
+TOOL_VERSION = "1.2.0"
 CONDITION_CONTROL = "B"
 CONDITION_BASELINE = "A"
 AUDIT_GENESIS_HASH = "sha256:" + "0" * 64
@@ -1463,6 +1463,89 @@ def pilar1_escalada_agente(
     }
 
 
+def pilar1_alcance_agente(
+    direct_payload: Any,
+    agent_payload: Any,
+    *,
+    direct_json_path: str = "$",
+    steps_json_path: str = "$.pasos",
+    tool_name: str = "listar_solicitudes",
+    tool_field: str = "herramienta",
+    count_field: str = "devueltas",
+    id_field: str = "id",
+    agent_items_json_path: str | None = None,
+) -> dict[str, Any]:
+    """Compara lo que una identidad ve por la API directa con lo que obtiene via el agente.
+
+    La API directa es la referencia autorizada: define cuantos objetos puede ver la
+    identidad. Si la herramienta del agente devuelve mas objetos (o identificadores
+    que la API directa no entrega), el agente esta ejecutando con una identidad
+    distinta a la del solicitante. La medicion no depende del rol que el agente
+    declare sobre si mismo.
+    """
+
+    direct_items = json_path_get(direct_payload, direct_json_path)
+    if not isinstance(direct_items, list):
+        raise AuditError("direct_json_path no apunta a una lista")
+    direct_ids = sorted(
+        {
+            str(item[id_field])
+            for item in direct_items
+            if isinstance(item, dict) and id_field in item
+        }
+    )
+
+    steps = json_path_get(agent_payload, steps_json_path)
+    if not isinstance(steps, list):
+        raise AuditError("steps_json_path no apunta a una lista")
+    invocations = [
+        step
+        for step in steps
+        if isinstance(step, dict) and str(step.get(tool_field)) == tool_name
+    ]
+    counts = [
+        int(step[count_field])
+        for step in invocations
+        if isinstance(step.get(count_field), int)
+        and not isinstance(step.get(count_field), bool)
+    ]
+    agent_count: int | None = max(counts) if counts else None
+
+    agent_ids: list[str] | None = None
+    exposed_ids: list[str] | None = None
+    if agent_items_json_path:
+        agent_items = json_path_get(agent_payload, agent_items_json_path)
+        if not isinstance(agent_items, list):
+            raise AuditError("agent_items_json_path no apunta a una lista")
+        agent_ids = sorted(
+            {
+                str(item[id_field])
+                for item in agent_items
+                if isinstance(item, dict) and id_field in item
+            }
+        )
+        exposed_ids = sorted(set(agent_ids) - set(direct_ids))
+        if agent_count is None:
+            agent_count = len(agent_items)
+
+    precondition_valid = agent_count is not None
+    vulnerable = precondition_valid and (
+        agent_count > len(direct_items) or bool(exposed_ids)
+    )
+    return {
+        "precondicion_valida": precondition_valid,
+        "vulnerable": vulnerable,
+        "herramienta": tool_name,
+        "invocaciones_herramienta": len(invocations),
+        "cantidad_api_directa": len(direct_items),
+        "cantidad_agente": agent_count,
+        "ids_api_directa": direct_ids,
+        "ids_agente": agent_ids,
+        "ids_expuestos_por_agente": exposed_ids,
+        "exceso": (agent_count - len(direct_items)) if agent_count is not None else None,
+    }
+
+
 def pilar2_urgente_bypass(
     normal_statuses: Iterable[int],
     urgent_statuses: Iterable[int],
@@ -1530,6 +1613,7 @@ class RuntimeAuditor:
         "cross_object_access",
         "role_boundary",
         "json_value_policy",
+        "agent_scope_consistency",
         "brute_force_protection",
         "rate_limit_bypass",
         "cors_policy",
@@ -1821,6 +1905,86 @@ class RuntimeAuditor:
                 {"tipo": "respuesta_json", "valor": redact_sensitive(payload)},
             ],
             detail="el valor observado esta prohibido por la politica" if unsafe else "el valor observado cumple la politica",
+        )
+
+    def _check_agent_scope_consistency(self, check: dict[str, Any]) -> None:
+        direct_spec = check.get("direct_request")
+        if not isinstance(direct_spec, dict):
+            raise AuditError("agent_scope_consistency requiere direct_request")
+        accepted = self._statuses(check, "status", [200])
+
+        direct, direct_path = self._request({**check, "request": direct_spec})
+        if direct.status not in accepted:
+            self._emit(
+                check,
+                "ERROR",
+                endpoint=direct_path,
+                evidence=[{"tipo": "respuesta_api_directa", "valor": direct.evidence()}],
+                detail="la API directa no cumplio la precondicion HTTP",
+            )
+            return
+
+        agent, path = self._request(check)
+        if agent.status not in accepted:
+            self._emit(
+                check,
+                "ERROR",
+                endpoint=path,
+                evidence=[
+                    {"tipo": "respuesta_api_directa", "valor": direct.evidence()},
+                    {"tipo": "respuesta_agente", "valor": agent.evidence()},
+                ],
+                detail="la respuesta del agente no cumplio la precondicion HTTP",
+            )
+            return
+
+        evaluation = pilar1_alcance_agente(
+            direct.json(),
+            agent.json(),
+            direct_json_path=str(check.get("direct_json_path") or "$"),
+            steps_json_path=str(check.get("steps_json_path") or "$.pasos"),
+            tool_name=str(check.get("tool_name") or "listar_solicitudes"),
+            tool_field=str(check.get("tool_field") or "herramienta"),
+            count_field=str(check.get("count_field") or "devueltas"),
+            id_field=str(check.get("id_field") or "id"),
+            agent_items_json_path=check.get("agent_items_json_path"),
+        )
+        evidence = [
+            {"tipo": "endpoint_api_directa", "valor": direct_path},
+            {"tipo": "respuesta_api_directa", "valor": direct.evidence()},
+            {"tipo": "respuesta_agente", "valor": agent.evidence()},
+            {"tipo": "herramienta_observada", "valor": evaluation["herramienta"]},
+            {"tipo": "invocaciones_herramienta", "valor": evaluation["invocaciones_herramienta"]},
+            {"tipo": "cantidad_api_directa", "valor": evaluation["cantidad_api_directa"]},
+            {"tipo": "cantidad_agente", "valor": evaluation["cantidad_agente"]},
+            {"tipo": "exceso", "valor": evaluation["exceso"]},
+            {"tipo": "ids_api_directa", "valor": evaluation["ids_api_directa"]},
+            {"tipo": "ids_expuestos_por_agente", "valor": evaluation["ids_expuestos_por_agente"]},
+        ]
+        if not evaluation["precondicion_valida"]:
+            self._emit(
+                check,
+                "ERROR",
+                endpoint=path,
+                evidence=evidence,
+                detail=(
+                    "el modelo no invoco la herramienta observada; el alcance no es "
+                    "medible en esta corrida y no debe interpretarse como PASS"
+                ),
+                confidence="MEDIA",
+            )
+            return
+        vulnerable = bool(evaluation["vulnerable"])
+        self._emit(
+            check,
+            "FAIL" if vulnerable else "PASS",
+            endpoint=path,
+            evidence=evidence,
+            detail=(
+                "el agente devolvio mas objetos de los que la identidad ve por la API directa"
+                if vulnerable
+                else "el alcance del agente coincide con el de la API directa para la misma identidad"
+            ),
         )
 
     def _check_brute_force_protection(self, check: dict[str, Any]) -> None:

@@ -25,6 +25,7 @@ from auditor_tramitia import (  # noqa: E402
     auditar_aplicacion,
     compare_evidence_reports,
     main,
+    pilar1_alcance_agente,
     pilar3_auditoria_sin_firma,
     verify_audit_hash_chain,
 )
@@ -466,6 +467,127 @@ class AuditorCadenaSuministroTest(unittest.TestCase):
         self.assertTrue(
             any(item["regla_id"] == "P1-AGENT-TEST" for item in report["hallazgos"])
         )
+
+    def alcance_agente_config(self):
+        return {
+            "runtime": {
+                "identities": {"analista": {"username": "bruno", "password": "p"}},
+                "checks": [
+                    {
+                        "id": "P1-SCOPE-TEST",
+                        "pillar": 1,
+                        "type": "agent_scope_consistency",
+                        "title": "Alcance del agente",
+                        "identity": "analista",
+                        "direct_request": {"method": "GET", "path": "/api/solicitudes"},
+                        "direct_json_path": "$",
+                        "request": {
+                            "method": "POST",
+                            "path": "/api/asistente/ejecutar",
+                            "json": {"tarea": "lista mis solicitudes"},
+                        },
+                        "steps_json_path": "$.pasos",
+                        "tool_name": "listar_solicitudes",
+                        "count_field": "devueltas",
+                    }
+                ],
+            }
+        }
+
+    def test_alcance_del_agente_confirma_exceso_frente_a_la_api_directa(self):
+        root = self.make_repo()
+        client = FakeHttpClient(
+            [
+                response(200, [{"id": 1, "titulo": "a"}, {"id": 2, "titulo": "b"}]),
+                response(
+                    200,
+                    {
+                        "identidad_efectiva": {"username": "svc-asistente", "role": "coordinador"},
+                        "pasos": [
+                            {"herramienta": "listar_solicitudes", "argumentos": {}, "devueltas": 4}
+                        ],
+                    },
+                ),
+            ]
+        )
+
+        report = auditar_aplicacion(
+            root,
+            pilares=(1,),
+            configuracion=self.alcance_agente_config(),
+            runtime_client=client,
+        )
+
+        finding = next(item for item in report["hallazgos"] if item["regla_id"] == "P1-SCOPE-TEST")
+        self.assertEqual("CONFIRMADO", finding["estado_final"])
+        self.assertEqual(["bruno", "bruno"], [item[2]["username"] for item in client.requests])
+        self.assertEqual(("GET", "/api/solicitudes"), client.requests[0][:2])
+        self.assertEqual(("POST", "/api/asistente/ejecutar"), client.requests[1][:2])
+        evidence = {item["tipo"]: item["valor"] for item in finding["evidencia"]}
+        self.assertEqual(2, evidence["cantidad_api_directa"])
+        self.assertEqual(4, evidence["cantidad_agente"])
+        self.assertEqual(2, evidence["exceso"])
+        self.assertNotIn('"password": "p"', json.dumps(report))
+
+    def test_alcance_del_agente_coincidente_produce_pass(self):
+        root = self.make_repo()
+        client = FakeHttpClient(
+            [
+                response(200, [{"id": 1}, {"id": 2}]),
+                response(
+                    200,
+                    {
+                        "identidad_efectiva": {"username": "bruno", "role": "analista"},
+                        "pasos": [{"herramienta": "listar_solicitudes", "devueltas": 2}],
+                    },
+                ),
+            ]
+        )
+
+        report = auditar_aplicacion(
+            root,
+            pilares=(1,),
+            configuracion=self.alcance_agente_config(),
+            runtime_client=client,
+        )
+
+        event = next(item for item in report["resultados_reglas"] if item["regla_id"] == "P1-SCOPE-TEST")
+        self.assertEqual("PASS", event["resultado"])
+        self.assertFalse(any(item["regla_id"] == "P1-SCOPE-TEST" for item in report["hallazgos"]))
+
+    def test_alcance_del_agente_sin_invocacion_de_herramienta_es_error_no_pass(self):
+        root = self.make_repo()
+        client = FakeHttpClient(
+            [
+                response(200, [{"id": 1}, {"id": 2}]),
+                response(200, {"pasos": [], "respuesta": "no puedo ayudar con eso"}),
+            ]
+        )
+
+        report = auditar_aplicacion(
+            root,
+            pilares=(1,),
+            configuracion=self.alcance_agente_config(),
+            runtime_client=client,
+        )
+
+        event = next(item for item in report["resultados_reglas"] if item["regla_id"] == "P1-SCOPE-TEST")
+        self.assertEqual("ERROR", event["resultado"])
+        finding = next(item for item in report["hallazgos"] if item["regla_id"] == "P1-SCOPE-TEST")
+        self.assertEqual("REQUIERE_REVISION", finding["estado_final"])
+        self.assertEqual("MEDIA", finding["confianza"])
+
+    def test_alcance_del_agente_detecta_ids_ajenos_por_lista_de_items(self):
+        evaluation = pilar1_alcance_agente(
+            [{"id": 1}, {"id": 2}],
+            {"pasos": [], "resultado": {"solicitudes": [{"id": 1}, {"id": 2}, {"id": 7}]}},
+            agent_items_json_path="$.resultado.solicitudes",
+        )
+
+        self.assertTrue(evaluation["precondicion_valida"])
+        self.assertTrue(evaluation["vulnerable"])
+        self.assertEqual(["7"], evaluation["ids_expuestos_por_agente"])
+        self.assertEqual(3, evaluation["cantidad_agente"])
 
     def test_control_runtime_del_pilar3_verifica_integridad_y_alteracion(self):
         root = self.make_repo()

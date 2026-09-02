@@ -83,6 +83,7 @@ PILLAR_RISK_PROFILES = {
 
 FINDING_IMPACTS = {
     "P1-AGENT-004": "La condición observada puede permitir que una identidad de bajo privilegio opere mediante el agente con facultades superiores y acceda a herramientas o datos fuera de su rol.",
+    "P1-SCOPE-006": "El agente actúa como canal de acceso indebido: una identidad de analista obtiene, a través del chat, más solicitudes de las que la API directa le entrega, lo que confirma con datos observables que las herramientas se ejecutan con privilegios ajenos al solicitante.",
     "P1-BOLA-002": "La autorización por objeto es insuficiente: un usuario autenticado podría consultar recursos pertenecientes a otra identidad, afectando la confidencialidad de los trámites.",
     "P1-ROLE-003": "El acceso de un analista a funciones administrativas puede exponer información sensible y habilitar acciones reservadas a coordinación.",
     "P1-BRUTE-005": "La ausencia de limitación observable aumenta la viabilidad de ataques automatizados contra credenciales y dificulta detectar intentos reiterados.",
@@ -101,6 +102,7 @@ FINDING_IMPACTS = {
 
 FINDING_CLOSURE_TESTS = {
     "P1-AGENT-004": "Repetir la regla con identidad de analista; la identidad efectiva debe conservar el rol autorizado, impedir herramientas privilegiadas y producir PASS.",
+    "P1-SCOPE-006": "Repetir la misma tarea con la identidad de analista; la cantidad devuelta por la herramienta del agente debe coincidir con la de la API directa para esa cuenta y la regla debe producir PASS.",
     "P1-BOLA-002": "Repetir el acceso cruzado con las identidades A y B; el recurso ajeno debe responder 403/404 y la regla debe producir PASS.",
     "P1-ROLE-003": "Solicitar nuevamente el endpoint administrativo con el rol de analista; debe responder 403/404 y producir PASS.",
     "P1-BRUTE-005": "Repetir la secuencia acotada de intentos fallidos; debe observarse bloqueo, espera o limitación antes de agotar el presupuesto.",

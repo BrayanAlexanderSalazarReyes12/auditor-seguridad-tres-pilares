@@ -24,6 +24,12 @@ autenticación, selección de pruebas, solicitudes, límites, extracción de cam
 comparación, clasificación y hashes pertenecen al código determinista del
 auditor.
 
+El control `agent_scope_consistency` aplica esa separación de forma explícita:
+la API directa fija la referencia autorizada de lo que la identidad puede ver,
+el agente aporta la observación y el código determinista compara ambas. Cuando
+el modelo decide no invocar la herramienta, la regla produce `ERROR` con
+confianza `MEDIA`, porque la variable no fue observable, y nunca un `PASS`.
+
 ## Capacidades y permisos
 
 | Componente | Capacidad | Identidad |

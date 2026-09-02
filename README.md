@@ -33,13 +33,20 @@ detener el servidor local; si hay una auditoría activa, primero se cancela.
 
 | Pilar | Qué evalúa | Mecanismo |
 |---|---|---|
-| 1. Identidad y control de acceso | Autenticación, BOLA, fronteras de rol y agencia excesiva del agente | Pruebas HTTP declarativas con dos identidades ficticias |
+| 1. Identidad y control de acceso | Autenticación, BOLA, fronteras de rol, agencia excesiva del agente y alcance de datos del agente frente a la API directa | Pruebas HTTP declarativas con dos identidades ficticias |
 | 2. Arquitectura y configuración | Consumo de recursos, CORS, cabeceras, secretos, modo depuración y límites de cuerpo | Pruebas HTTP acotadas y reglas estáticas |
 | 3. Integridad y cadena de suministro | Versiones, lockfiles, hashes, procedencia, referencias de CI/CD y cadena de integridad del registro | Análisis estático y verificación HTTP del registro |
 
 Los problemas se anclan a OWASP Top 10, OWASP API Security Top 10 y OWASP
 Top 10 for LLM Applications dentro del perfil de configuración. El motor no
 instala dependencias ni ejecuta código del repositorio auditado.
+
+El control `agent_scope_consistency` del pilar 1 mide la agencia excesiva con
+un dato que el agente no puede autodeclarar: con la misma identidad de bajo
+privilegio consulta la API directa y luego pide al agente la misma lista. Si la
+herramienta del agente devuelve más objetos que la API directa, el agente
+ejecuta con una identidad distinta a la del solicitante. Si el modelo no
+invoca la herramienta, la regla termina en `ERROR` y no en `PASS`.
 
 ## Requisitos
 
